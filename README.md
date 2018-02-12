@@ -33,6 +33,7 @@ dotnet lambda package -c Release -f netcoreapp2.0 dragnet-website.zip
 
 - Deploy the Lambda to AWS. Probably easiest to just upload the compiled version.
     - Be sure to allocate enough RAM for the files. This currently uses RAM and no disk to extract files so all the files need to be able to fit into RAM. 
+	- The function is named "ExtractFiles"
 - In the CodePipeline after the Build, define an Invoke command to call this Lambda expression.
 - Later on in my CloudFormation step, I setup the following in the Advanced -> Parameter Overrrides
 
@@ -54,6 +55,32 @@ dotnet lambda package -c Release -f netcoreapp2.0 dragnet-website.zip
     },
     ...
 ```
+
+
+Move Files to S3 Bucket
+---------------------
+I also needed to then move those files to an S3 bucket so there is another function embedded in this which will take the output of the ExtractFiles function and move some of the files to a public S3 bucket. 
+
+Here is an example defintion of the function.
+
+```
+{
+    "profile"     : "default",
+    "region"      : "us-west-2",
+    "configuration" : "Release",
+    "framework"     : "netcoreapp2.0",
+    "function-runtime" : "dotnetcore2.0",
+    "function-memory-size" : 384,
+    "function-timeout"     : 120,
+    "function-handler"     : "aws-unzip-codepipeline-output-lambda::ExtractStaticFiles.Function::CopyArtifactExtractedFiles",
+    "function-name"        : "CopyFilesToS3Bucket",
+    "function-role"        : "arn:aws:iam::354135755476:role/MyRole",
+    "environment-variables" : ""
+}
+
+```
+
+
 
 
 

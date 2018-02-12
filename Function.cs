@@ -10,6 +10,7 @@ using Amazon.S3.Util;
 using System.IO.Compression;
 using System.IO;
 using Amazon.Runtime;
+using Newtonsoft.Json;
 
 // Assembly attribute to enable the Lambda function's JSON input to be converted into a .NET class.
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.Json.JsonSerializer))]
@@ -48,7 +49,7 @@ namespace ExtractStaticFiles
         /// <param name="evnt"></param>
         /// <param name="context"></param>
         /// <returns></returns>
-        public async Task<string> FunctionHandler(CodePipelineEvent evnt, ILambdaContext context)
+        public async Task<string> ExtractFiles(CodePipelineEvent evnt, ILambdaContext context)
         {
             Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(evnt, Newtonsoft.Json.Formatting.Indented));
 
@@ -92,5 +93,59 @@ namespace ExtractStaticFiles
 
             return "Success";
         }
+
+
+        public class ArtifactsToCopy
+        {
+            public string SourcePrefix { get; set; }
+            public string DestBucket { get; set; }
+            public string DestPrefix { get; set; }
+        }
+
+        /// <summary>
+        /// The only artifact should be the one passed to the above function.
+        /// </summary>
+        /// <param name="evnt"></param>
+        /// <param name="context"></param>
+        /// <returns></returns>
+        public async Task<string> CopyArtifactExtractedFiles(CodePipelineEvent evnt, ILambdaContext context)
+        {
+            context.Logger.LogLine(Newtonsoft.Json.JsonConvert.SerializeObject(evnt, Newtonsoft.Json.Formatting.Indented));
+
+            var artifact = evnt.Job.data.inputArtifacts.First();
+
+
+            var toCopy = JsonConvert.DeserializeObject<ArtifactsToCopy>(evnt.Job.data.actionConfiguration.configuration.UserParameters);
+
+            var outputFolderFromPriorStep = artifact.location.s3Location.objectKey + "_output/";
+
+            var filePrefix = outputFolderFromPriorStep + toCopy.SourcePrefix;
+
+
+            var objects = await S3Client.ListObjectsV2Async(new Amazon.S3.Model.ListObjectsV2Request
+            {
+                BucketName = artifact.location.s3Location.bucketName,
+                Prefix = filePrefix,
+                MaxKeys = 100000
+            });
+            context.Logger.LogLine("Objects: Keys=" + objects.KeyCount + " NextConinuationToken: " + objects.NextContinuationToken);
+
+            foreach(var o in objects.S3Objects)
+            {
+                context.Logger.LogLine("File: " + o.Key);
+                await S3Client.CopyObjectAsync(artifact.location.s3Location.bucketName, o.Key, toCopy.DestBucket, o.Key.Replace(filePrefix, ""));
+            }
+
+            context.Logger.LogLine("Call PutJobSuccessResultAsync, JobID: " + evnt.Job.id);
+            await CodePipelineClient.PutJobSuccessResultAsync(new Amazon.CodePipeline.Model.PutJobSuccessResultRequest
+            {
+                JobId = evnt.Job.id
+            });
+
+            context.Logger.LogLine("Completed");
+
+            return "Success";
+        }
+
     }
 }
