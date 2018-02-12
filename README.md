@@ -61,6 +61,8 @@ Move Files to S3 Bucket
 ---------------------
 I also needed to then move those files to an S3 bucket so there is another function embedded in this which will take the output of the ExtractFiles function and move some of the files to a public S3 bucket. 
 
+This function also properly invokes CodePipeline's PutJobSuccess at the end of the execution.
+
 Here is an example defintion of the function.
 
 ```
