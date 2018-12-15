@@ -53,18 +53,19 @@ namespace ExtractStaticFiles
         {
             Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(evnt, Newtonsoft.Json.Formatting.Indented));
 
-            var artifact = evnt.Job.data.inputArtifacts.First();
+            var inputArtifact = evnt.Job.data.inputArtifacts.First();
+            var outputArtifact = evnt.Job.data.outputArtifacts.First();
 
             //var credentials = new BasicAWSCredentials(evnt.Job.data.artifactCredentials.accessKeyId, evnt.Job.data.artifactCredentials.secretAccessKey);
             //IAmazonS3 s3PipelineArtifactAccess = new AmazonS3Client(credentials);
 
 
-            using (var objectStream = await S3Client.GetObjectStreamAsync(artifact.location.s3Location.bucketName, artifact.location.s3Location.objectKey, new Dictionary<string, object>()))
+            using (var objectStream = await S3Client.GetObjectStreamAsync(inputArtifact.location.s3Location.bucketName, inputArtifact.location.s3Location.objectKey, new Dictionary<string, object>()))
             {
                 var memoryStream = new MemoryStream();
                 objectStream.CopyTo(memoryStream);
 
-                context.Logger.LogLine("Fetched object stream async, Bucket: " + artifact.location.s3Location.bucketName);
+                context.Logger.LogLine("Fetched object stream async, Bucket: " + inputArtifact.location.s3Location.bucketName);
                 using (var archive = new ZipArchive(memoryStream, ZipArchiveMode.Read))
                 {
                     context.Logger.LogLine("About to read entries");
@@ -77,10 +78,10 @@ namespace ExtractStaticFiles
                             fileStream.CopyTo(fileMemStream);
                             fileMemStream.Position = 0;
 
-                            var fileKey = artifact.location.s3Location.objectKey + "_output/" + entry.FullName;
+                            var fileKey = outputArtifact.location.s3Location.objectKey + "/" + entry.FullName;
                             context.Logger.LogLine(fileKey);
-                            await this.S3Client.UploadObjectFromStreamAsync(artifact.location.s3Location.bucketName, fileKey, fileMemStream, additionalProperties: null);
-                            
+                            await this.S3Client.UploadObjectFromStreamAsync(outputArtifact.location.s3Location.bucketName, fileKey, fileMemStream, additionalProperties: null);
+
                         }
                     }
                 }
