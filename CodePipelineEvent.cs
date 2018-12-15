@@ -28,7 +28,7 @@ namespace ExtractStaticFiles
         public S3Location s3Location { get; set; }
     }
 
-    public class InputArtifact
+    public class Artifact
     {
         public Location location { get; set; }
         public object revision { get; set; }
@@ -45,8 +45,8 @@ namespace ExtractStaticFiles
     public class Data
     {
         public ActionConfiguration actionConfiguration { get; set; }
-        public List<InputArtifact> inputArtifacts { get; set; }
-        public List<object> outputArtifacts { get; set; }
+        public List<Artifact> inputArtifacts { get; set; }
+        public List<Artifact> outputArtifacts { get; set; }
         public ArtifactCredentials artifactCredentials { get; set; }
     }
 
